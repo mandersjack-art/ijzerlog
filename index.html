@@ -1058,9 +1058,25 @@
     document.getElementById('authGate').classList.add('hidden');
     document.getElementById('app').style.display = '';
   }
+  function authErrorMessage(e){
+    if(e && e.code === 'auth/unauthorized-domain'){
+      return 'Dit domein (' + location.hostname + ') staat niet in de lijst met toegestane domeinen in Firebase. Voeg het toe bij Authentication > Settings > Authorized domains.';
+    }
+    if(e && e.code === 'auth/operation-not-allowed'){
+      return 'Google-inloggen staat nog niet aan in Firebase (Authentication > Sign-in method > Google).';
+    }
+    return 'Inloggen mislukt' + (e && e.message ? ': ' + e.message : '') + '.';
+  }
   function signIn(){
+    var btn = document.querySelector('[data-action="sign-in"]');
+    if(btn) btn.disabled = true;
     var provider = new firebase.auth.GoogleAuthProvider();
-    fbAuth.signInWithRedirect(provider);
+    fbAuth.signInWithRedirect(provider).catch(function(e){
+      console.error('sign-in error', e);
+      showAuthGate(authErrorMessage(e));
+    }).finally(function(){
+      if(btn) btn.disabled = false;
+    });
   }
   function signOutUser(){ fbAuth.signOut(); }
 
@@ -1068,7 +1084,10 @@
     firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth = firebase.auth();
     fbDb = firebase.firestore();
-    fbAuth.getRedirectResult().catch(function(e){ console.error('redirect result error', e); });
+    fbAuth.getRedirectResult().catch(function(e){
+      console.error('redirect result error', e);
+      showAuthGate(authErrorMessage(e));
+    });
     fbAuth.onAuthStateChanged(function(user){
       if(user && user.email === OWNER_EMAIL){
         fbUser = user;
@@ -1149,7 +1168,11 @@
   }
 
   if(firebaseConfigured){
-    initFirebaseFlow();
+    if(typeof firebase === 'undefined'){
+      showAuthGate('Kon Firebase niet laden. Controleer je internetverbinding of een adblocker die gstatic.com blokkeert.');
+    } else {
+      initFirebaseFlow();
+    }
   } else {
     startApp();
   }
