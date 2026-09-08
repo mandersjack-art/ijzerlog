@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IJzerlog</title>
+<meta name="description" content="Log sets, reps en gewicht per gymbezoek, importeer je trainingsschema uit Markdown en volg je voortgang per oefening.">
+<meta name="theme-color" content="#14171B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IJzerlog">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --bg:#EEF0F2;
+    --surface:#FFFFFF;
+    --surface-2:#E3E6EA;
+    --border:#D3D7DC;
+    --text:#1A1D21;
+    --text-dim:#5B6169;
+    --accent:#C1611A;
+    --accent-ink:#FFFFFF;
+    --accent-soft:rgba(193,97,26,0.12);
+    --accent2:#1F8A78;
+    --accent2-soft:rgba(31,138,120,0.12);
+    --danger:#C23B3B;
+    --danger-soft:rgba(194,59,59,0.10);
+    --shadow:0 1px 2px rgba(20,22,25,0.06), 0 6px 16px rgba(20,22,25,0.07);
+    --radius:12px;
+    --day-1:#C1611A; --day-2:#1F8A78; --day-3:#7B5EC7; --day-4:#2E6FB8;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14171B; --surface:#1C2025; --surface-2:#262B31; --border:#31363D;
+      --text:#ECEEF1; --text-dim:#9AA1AC;
+      --accent:#E8862B; --accent-ink:#1A1200; --accent-soft:rgba(232,134,43,0.16);
+      --accent2:#3FB3A2; --accent2-soft:rgba(63,179,162,0.16);
+      --danger:#E15A5A; --danger-soft:rgba(225,90,90,0.14);
+      --shadow:0 1px 2px rgba(0,0,0,0.35), 0 10px 22px rgba(0,0,0,0.4);
+      --day-1:#E8862B; --day-2:#3FB3A2; --day-3:#9C82E0; --day-4:#5A9BDB;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14171B; --surface:#1C2025; --surface-2:#262B31; --border:#31363D;
+    --text:#ECEEF1; --text-dim:#9AA1AC;
+    --accent:#E8862B; --accent-ink:#1A1200; --accent-soft:rgba(232,134,43,0.16);
+    --accent2:#3FB3A2; --accent2-soft:rgba(63,179,162,0.16);
+    --danger:#E15A5A; --danger-soft:rgba(225,90,90,0.14);
+    --shadow:0 1px 2px rgba(0,0,0,0.35), 0 10px 22px rgba(0,0,0,0.4);
+    --day-1:#E8862B; --day-2:#3FB3A2; --day-3:#9C82E0; --day-4:#5A9BDB;
+  }
+
+  *{ box-sizing:border-box; }
+  html, body{ margin:0; background:var(--bg); color:var(--text); }
+  body{ font-family:'Work Sans', system-ui, sans-serif; }
+  #app{
+    font-size:16px;
+    line-height:1.4;
+    color:var(--text);
+    max-width:560px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding-bottom:76px;
+  }
+  h1,h2,h3{ font-family:'Bebas Neue', 'Work Sans', sans-serif; font-weight:400; letter-spacing:0.02em; text-wrap:balance; margin:0; }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+  button{ font-family:inherit; }
+  input, select, textarea{ font-family:inherit; color:var(--text); }
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ---- topbar ---- */
+  .topbar{
+    position:sticky; top:0; z-index:5;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px 12px;
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+  }
+  .brand{ display:flex; align-items:center; gap:8px; }
+  .brand svg{ width:22px; height:22px; color:var(--accent); }
+  .brand-name{ font-family:'Bebas Neue',sans-serif; font-size:1.6rem; letter-spacing:0.06em; }
+  .topbar-right{ display:flex; align-items:center; gap:8px; }
+  .today{ font-size:0.8rem; color:var(--text-dim); text-transform:capitalize; text-align:right; }
+
+  main.view{ display:none; flex:1; padding:16px 16px 8px; }
+  main.view.active{ display:block; }
+  @media (prefers-reduced-motion: no-preference){
+    main.view.active{ animation:fadein 0.18s ease-out; }
+  }
+  @keyframes fadein{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+
+  /* ---- tabbar ---- */
+  .tabbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:5;
+    display:flex; justify-content:center;
+    background:var(--surface);
+    border-top:1px solid var(--border);
+  }
+  .tabbar-inner{ display:flex; width:100%; max-width:560px; }
+  .tab{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:9px 4px 10px; background:none; border:none; cursor:pointer;
+    color:var(--text-dim); font-size:0.72rem; font-weight:600;
+  }
+  .tab svg{ width:21px; height:21px; }
+  .tab.active{ color:var(--accent); }
+
+  /* ---- generic ---- */
+  .section-title{ font-size:1.6rem; margin-bottom:10px; }
+  .subtle{ color:var(--text-dim); font-size:0.85rem; }
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px 14px 12px; margin-bottom:12px;
+  }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px 16px; border-radius:999px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); font-weight:600; font-size:0.88rem;
+    cursor:pointer;
+  }
+  .btn-accent{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .btn-ghost{ background:transparent; border-color:transparent; }
+  .btn-danger{ background:var(--danger-soft); border-color:transparent; color:var(--danger); }
+  .btn-sm{ padding:6px 12px; font-size:0.78rem; }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:0.45; cursor:default; }
+  .icon-btn{
+    width:30px; height:30px; border-radius:8px; border:none; background:transparent;
+    color:var(--text-dim); display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .icon-btn:hover{ background:var(--surface-2); }
+  .icon-btn svg{ width:16px; height:16px; }
+
+  .chip-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; }
+  .chip{
+    flex:0 0 auto; padding:9px 14px; border-radius:999px; border:1.5px solid var(--border);
+    background:var(--surface); font-weight:600; font-size:0.85rem; color:var(--text-dim); cursor:pointer;
+    border-left-width:4px;
+  }
+  .chip.active{ color:var(--text); background:var(--surface-2); }
+
+  .field-row{ display:flex; gap:8px; align-items:center; }
+  .datepick{
+    border:1px solid var(--border); background:var(--surface-2); color:var(--text);
+    border-radius:8px; padding:7px 9px; font-size:0.85rem;
+  }
+
+  .stat-row{ display:flex; gap:10px; margin-bottom:14px; }
+  .stat-tile{
+    flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:10px 12px; box-shadow:var(--shadow);
+  }
+  .stat-tile .num{ font-family:'Bebas Neue',sans-serif; font-size:1.7rem; color:var(--accent); }
+  .stat-tile .lbl{ font-size:0.72rem; color:var(--text-dim); }
+
+  .ex-card{ border-left:4px solid var(--accent); }
+  .ex-head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:2px; }
+  .ex-name{ font-weight:600; font-size:0.98rem; }
+  .ex-target{ font-size:0.76rem; color:var(--text-dim); white-space:nowrap; }
+  .ex-prev{ font-size:0.76rem; color:var(--accent2); margin-bottom:8px; }
+  .set-row{ display:grid; grid-template-columns:34px 1fr 1fr 30px; gap:8px; align-items:center; margin-bottom:6px; }
+  .set-idx{ font-size:0.76rem; color:var(--text-dim); font-weight:600; }
+  .set-input{
+    width:100%; border:1px solid var(--border); background:var(--bg); color:var(--text);
+    border-radius:8px; padding:8px 8px; font-size:0.95rem; text-align:center;
+  }
+  .set-input::placeholder{ color:var(--text-dim); opacity:0.7; }
+  .unit-wrap{ position:relative; }
+  .unit-wrap .set-input{ padding-right:26px; }
+  .unit-wrap span{ position:absolute; right:9px; top:50%; transform:translateY(-50%); font-size:0.7rem; color:var(--text-dim); pointer-events:none; }
+  .add-set-btn{ font-size:0.78rem; color:var(--accent); background:none; border:none; padding:4px 0 2px; cursor:pointer; font-weight:600; }
+  .skip-note{ font-size:0.78rem; color:var(--text-dim); font-style:italic; margin:4px 0; }
+
+  .save-indicator{ font-size:0.75rem; color:var(--accent2); text-align:center; min-height:1.1em; margin-top:2px; }
+
+  /* ---- schema view ---- */
+  .day-card .day-title-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .day-swatch{ width:10px; height:10px; border-radius:50%; flex:0 0 auto; }
+  .day-name-input{ flex:1; border:none; background:none; font-family:'Bebas Neue',sans-serif; font-size:1.25rem; color:var(--text); padding:2px 0; }
+  .ex-edit-row{ display:grid; grid-template-columns:1fr 52px 74px 28px; gap:6px; align-items:center; margin-bottom:6px; }
+  .ex-edit-row input{ border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:7px; padding:7px 6px; font-size:0.85rem; }
+  .schema-actions{ display:flex; gap:8px; margin-top:16px; }
+  .schema-savebar{
+    position:sticky; bottom:76px; display:flex; gap:8px; padding:10px 0; background:linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+
+  /* ---- modal ---- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(10,10,12,0.5); z-index:20;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .modal-backdrop.hidden{ display:none; }
+  .modal{
+    background:var(--surface); border-radius:16px 16px 0 0; width:100%; max-width:560px;
+    padding:18px 18px 22px; max-height:85vh; overflow-y:auto; box-shadow:var(--shadow);
+  }
+  @media (min-width:600px){
+    .modal-backdrop{ align-items:center; }
+    .modal{ border-radius:16px; }
+  }
+  .modal h2{ font-size:1.4rem; margin-bottom:10px; }
+  .modal textarea{
+    width:100%; min-height:180px; border:1px solid var(--border); background:var(--bg); color:var(--text);
+    border-radius:10px; padding:10px; font-family:'IBM Plex Mono',monospace; font-size:0.78rem; resize:vertical;
+  }
+  .modal-actions{ display:flex; gap:8px; margin-top:14px; justify-content:flex-end; }
+  .import-preview{ margin-top:12px; font-size:0.85rem; }
+  .import-preview .pv-day{ margin-bottom:6px; }
+  .import-preview .pv-day b{ color:var(--accent); }
+
+  /* ---- auth gate ---- */
+  #authGate .modal{ text-align:center; }
+  #authGate svg{ width:32px; height:32px; color:var(--accent); margin-bottom:8px; }
+
+  /* ---- toast ---- */
+  #toast{
+    position:fixed; left:50%; bottom:88px; transform:translateX(-50%) translateY(10px);
+    background:var(--text); color:var(--bg); padding:9px 16px; border-radius:999px;
+    font-size:0.85rem; font-weight:600; opacity:0; pointer-events:none; z-index:30;
+    transition:opacity 0.2s ease, transform 0.2s ease;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.err{ background:var(--danger); color:#fff; }
+
+  /* ---- progress view ---- */
+  .ex-select{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); font-size:0.95rem; margin-bottom:14px;
+  }
+  .chart-svg{ width:100%; height:auto; }
+  .chart-grid{ stroke:var(--border); stroke-width:1; }
+  .chart-axis{ fill:var(--text-dim); font-size:8px; font-family:'IBM Plex Mono',monospace; }
+  .chart-line{ stroke:var(--accent); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+  .chart-dot{ fill:var(--surface); stroke:var(--accent); stroke-width:2; }
+  .chart-dot-last{ fill:var(--accent); stroke:var(--surface); }
+  .hist-table{ width:100%; border-collapse:collapse; font-size:0.82rem; margin-top:14px; }
+  .hist-table th{ text-align:left; color:var(--text-dim); font-weight:600; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em; padding:0 6px 6px 0; border-bottom:1px solid var(--border); }
+  .hist-table td{ padding:8px 6px 8px 0; border-bottom:1px solid var(--border); vertical-align:top; }
+  .hist-table tr:last-child td{ border-bottom:none; }
+  .pr-badge{ display:inline-block; background:var(--accent-soft); color:var(--accent); font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:6px; margin-left:6px; }
+
+  .empty-state{ text-align:center; padding:40px 16px; color:var(--text-dim); }
+  .empty-state svg{ width:38px; height:38px; color:var(--text-dim); opacity:0.5; margin-bottom:10px; }
+
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div id="authGate" class="modal-backdrop hidden" style="align-items:center;">
+  <div class="modal">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8v8M2 10v4M20 8v8M22 10v4M7 12h10M7 9v6M17 9v6"/></svg>
+    <h2>IJzerlog</h2>
+    <p class="subtle" id="authMessage">Log in met Google om je trainingen te synchroniseren tussen apparaten.</p>
+    <button class="btn btn-accent btn-block" data-action="sign-in" style="margin-top:14px;">Inloggen met Google</button>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8v8M2 10v4M20 8v8M22 10v4M7 12h10M7 9v6M17 9v6"/></svg>
+      <span class="brand-name">IJZERLOG</span>
+    </div>
+    <div class="topbar-right">
+      <div class="today" id="todayLabel"></div>
+      <button class="icon-btn" id="signOutBtn" data-action="sign-out" hidden aria-label="Uitloggen" title="Uitloggen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="view-log" class="view active"></main>
+  <main id="view-schema" class="view"></main>
+  <main id="view-progress" class="view"></main>
+
+  <nav class="tabbar">
+    <div class="tabbar-inner">
+      <button class="tab active" data-action="set-view" data-view="log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8v8M2 10v4M20 8v8M22 10v4M7 12h10M7 9v6M17 9v6"/></svg>
+        Loggen
+      </button>
+      <button class="tab" data-action="set-view" data-view="schema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Schema
+      </button>
+      <button class="tab" data-action="set-view" data-view="progress">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M11 19V4M18 19v-7"/></svg>
+        Voortgang
+      </button>
+    </div>
+  </nav>
+</div>
+
+<div id="importModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2>Schema importeren</h2>
+    <p class="subtle">Plak een trainingsschema in Markdown-formaat. Herkend worden koppen (<span class="mono">## Dag 1 – ...</span>) gevolgd door een tabel met <span class="mono">| Oefening | Sets x Reps |</span>.</p>
+    <textarea id="importText" placeholder="## Dag 1 - Upper Body
+
+| Oefening | Sets x Reps |
+|---|---|
+| Chest press (machine) | 3 x 10-12 |
+"></textarea>
+    <div id="importPreview" class="import-preview" hidden></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="close-import">Annuleren</button>
+      <button class="btn" data-action="parse-import">Voorbeeld tonen</button>
+      <button class="btn btn-accent" data-action="confirm-import" hidden>Schema vervangen</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirmModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2 id="confirmTitle">Weet je het zeker?</h2>
+    <p class="subtle" id="confirmMessage"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-action="confirm-no">Annuleren</button>
+      <button class="btn btn-danger" data-action="confirm-yes">Verwijderen</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!--
+  Cloud-sync instellen (optioneel):
+  1. Maak een gratis Firebase-project op https://console.firebase.google.com
+  2. Zet Firestore Database aan (production mode) en Authentication > Sign-in method > Google.
+  3. Kopieer je Firebase-config (Project instellingen > Algemeen > Jouw apps > SDK setup) hieronder in FIREBASE_CONFIG.
+  4. Zet OWNER_EMAIL op je eigen Google-mailadres.
+  5. Zet deze Firestore-rules (Firestore > Regels):
+       rules_version = '2';
+       service cloud.firestore {
+         match /databases/{database}/documents {
+           match /{document=**} {
+             allow read, write: if request.auth != null && request.auth.token.email == "JOUW_EMAIL_HIER";
+           }
+         }
+       }
+  Zolang FIREBASE_CONFIG hieronder niet is ingevuld, gebruikt de app gewoon lokale opslag (per toestel, geen sync).
+-->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============ cloud sync config (vul in voor cross-device sync) ============ */
+  var FIREBASE_CONFIG = {
+    apiKey: "VUL_HIER_JE_APIKEY_IN",
+    authDomain: "VUL_HIER_IN.firebaseapp.com",
+    projectId: "VUL_HIER_IN",
+    storageBucket: "VUL_HIER_IN.appspot.com",
+    messagingSenderId: "VUL_HIER_IN",
+    appId: "VUL_HIER_IN"
+  };
+  var OWNER_EMAIL = "mandersjacksumma@gmail.com";
+  var firebaseConfigured = FIREBASE_CONFIG.apiKey.indexOf('VUL_HIER') === -1;
+
+  /* ============ constants ============ */
+  var LS_SCHEMA = 'ijzerlog_schema_v1';
+  var LS_LOGS = 'ijzerlog_logs_v1';
+  var LS_LASTDAY = 'ijzerlog_lastday_v1';
+
+  var DEFAULT_SCHEMA = {
+    name: 'Trainingsschema – 4x per week (Upper/Lower Split, minder beenbelasting)',
+    days: [
+      { id:'day1', name:'Dag 1 – Upper Body', exercises:[
+        { id:'day1-ex1', name:'Chest press (machine)', sets:3, reps:'10-12' },
+        { id:'day1-ex2', name:'Rij-machine (rowing)', sets:3, reps:'10-12' },
+        { id:'day1-ex3', name:'Shoulder press (machine)', sets:3, reps:'10-12' },
+        { id:'day1-ex4', name:'Lat pulldown', sets:3, reps:'10-12' },
+        { id:'day1-ex5', name:'Biceps curl', sets:2, reps:'12' },
+        { id:'day1-ex6', name:'Triceps pushdown', sets:2, reps:'12' }
+      ]},
+      { id:'day2', name:'Dag 2 – Lower Body (licht)', exercises:[
+        { id:'day2-ex1', name:'Beenpers', sets:2, reps:'12' },
+        { id:'day2-ex2', name:'Beenbuig (hamstrings)', sets:2, reps:'12-15' },
+        { id:'day2-ex3', name:'Kuitheffen', sets:2, reps:'15' },
+        { id:'day2-ex4', name:'Core / Plank', sets:3, reps:'30-45 sec' },
+        { id:'day2-ex5', name:'Cardio (fietsen/lopen)', sets:1, reps:'15-20 min' }
+      ]},
+      { id:'day3', name:'Dag 3 – Upper Body (variatie)', exercises:[
+        { id:'day3-ex1', name:'Chest fly of dips-machine', sets:3, reps:'10-12' },
+        { id:'day3-ex2', name:'Lat pulldown (andere grip)', sets:3, reps:'10-12' },
+        { id:'day3-ex3', name:'Shoulder press of zijheffen', sets:3, reps:'10-12' },
+        { id:'day3-ex4', name:'Rij-machine', sets:3, reps:'10-12' },
+        { id:'day3-ex5', name:'Biceps + triceps superset', sets:3, reps:'12' }
+      ]},
+      { id:'day4', name:'Dag 4 – Lower Body (licht) + extra core', exercises:[
+        { id:'day4-ex1', name:'Squat rack of leg press', sets:2, reps:'12' },
+        { id:'day4-ex2', name:'Beenstrekken (quadriceps)', sets:2, reps:'12-15' },
+        { id:'day4-ex3', name:'Kuitheffen', sets:2, reps:'15' },
+        { id:'day4-ex4', name:'Core (variatie oefeningen)', sets:3, reps:'15-20' },
+        { id:'day4-ex5', name:'Cardio (interval)', sets:1, reps:'15-20 min' }
+      ]}
+    ]
+  };
+
+  /* ============ firebase state ============ */
+  var fbAuth = null, fbDb = null, fbUser = null;
+
+  function useCloud(){ return firebaseConfigured && !!fbUser && fbUser.email === OWNER_EMAIL; }
+
+  /* ============ storage ============ */
+  function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  function lsGet(key, fallback){
+    try{ var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; }
+  }
+  function lsSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+
+  function fsSchemaDoc(){ return fbDb.collection('schema').doc('current'); }
+  function fsLogsCol(){ return fbDb.collection('logs'); }
+
+  function loadSchema(){
+    var p = useCloud()
+      ? fsSchemaDoc().get().then(function(snap){ return snap.exists ? snap.data() : null; })
+      : Promise.resolve(lsGet(LS_SCHEMA, null));
+    return p.then(function(schema){
+      if(schema && schema.days && schema.days.length) return schema;
+      return saveSchema(DEFAULT_SCHEMA).then(function(){ return DEFAULT_SCHEMA; });
+    });
+  }
+
+  function saveSchema(schema){
+    if(useCloud()) return fsSchemaDoc().set(schema);
+    lsSet(LS_SCHEMA, schema);
+    return Promise.resolve();
+  }
+
+  function loadAllLogs(){
+    if(useCloud()){
+      return fsLogsCol().orderBy('date','desc').limit(1000).get().then(function(snap){
+        var arr = [];
+        snap.forEach(function(doc){ var data = doc.data() || {}; data.id = doc.id; arr.push(data); });
+        return arr;
+      });
+    }
+    var arr = lsGet(LS_LOGS, []);
+    arr = arr.slice().sort(function(a,b){ return b.date < a.date ? -1 : (b.date > a.date ? 1 : 0); });
+    return Promise.resolve(arr);
+  }
+
+  function createLog(data){
+    if(useCloud()) return fsLogsCol().add(data).then(function(ref){ return ref.id; });
+    var arr = lsGet(LS_LOGS, []);
+    var id = uid('log');
+    arr.push(Object.assign({ id: id }, data));
+    lsSet(LS_LOGS, arr);
+    return Promise.resolve(id);
+  }
+
+  function updateLog(id, data){
+    if(useCloud()) return fsLogsCol().doc(id).update(data);
+    var arr = lsGet(LS_LOGS, []);
+    var idx = arr.findIndex(function(l){ return l.id === id; });
+    if(idx >= 0){ arr[idx] = Object.assign({}, arr[idx], data); lsSet(LS_LOGS, arr); }
+    return Promise.resolve();
+  }
+
+  function deleteLog(id){
+    if(useCloud()) return fsLogsCol().doc(id).delete();
+    var arr = lsGet(LS_LOGS, []);
+    lsSet(LS_LOGS, arr.filter(function(l){ return l.id !== id; }));
+    return Promise.resolve();
+  }
+
+  /* ============ markdown parser ============ */
+  function parseScheduleMarkdown(md){
+    var lines = md.split(/\r?\n/);
+    var name = '';
+    var days = [];
+    var current = null;
+    var dayCounter = 0;
+    for(var i=0;i<lines.length;i++){
+      var line = lines[i].trim();
+      if(!name){
+        var titleM = line.match(/^#\s+(.*)$/);
+        if(titleM){ name = titleM[1].trim(); continue; }
+      }
+      var h2 = line.match(/^##\s+(.*)$/);
+      if(h2){
+        dayCounter++;
+        current = { id: 'day' + dayCounter, name: h2[1].trim(), exercises: [] };
+        days.push(current);
+        continue;
+      }
+      if(!current || line.indexOf('|') !== 0) continue;
+      var body = line.slice(1);
+      if(body.charAt(body.length-1) === '|') body = body.slice(0,-1);
+      var cells = body.split('|').map(function(c){ return c.trim(); });
+      if(cells.length < 2) continue;
+      if(/^:?-+:?$/.test(cells[0])) continue;
+      if(/oefening|exercise/i.test(cells[0])) continue;
+      var exName = cells[0];
+      var spec = cells[1] || '';
+      if(!exName) continue;
+      var m = spec.match(/^(\d+)\s*x\s*(.+)$/i);
+      var sets, reps;
+      if(m){ sets = parseInt(m[1],10); reps = m[2].trim(); }
+      else { sets = 1; reps = spec; }
+      current.exercises.push({
+        id: current.id + '-ex' + (current.exercises.length + 1),
+        name: exName, sets: sets, reps: reps
+      });
+    }
+    days = days.filter(function(d){ return d.exercises.length > 0; });
+    return { name: name || 'Mijn trainingsschema', days: days };
+  }
+
+  /* ============ helpers ============ */
+  function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+  function todayStr(d){ d = d || new Date(); return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function fmtDateNice(str){
+    try{
+      var d = new Date(str + 'T00:00:00');
+      return d.toLocaleDateString('nl-NL', { weekday:'long', day:'numeric', month:'long' });
+    }catch(e){ return str; }
+  }
+  function fmtShortDate(str){
+    try{
+      var d = new Date(str + 'T00:00:00');
+      return d.toLocaleDateString('nl-NL', { day:'numeric', month:'short' });
+    }catch(e){ return str; }
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+  function dayColorVar(index){ return 'var(--day-' + ((index % 4) + 1) + ')'; }
+
+  var toastTimer = null;
+  function showToast(msg, isErr){
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('err', !!isErr);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2200);
+  }
+
+  var savedFlashTimer = null;
+  function flashSaved(){
+    var el = document.getElementById('save-indicator');
+    if(!el) return;
+    el.textContent = 'Opgeslagen ✓';
+    clearTimeout(savedFlashTimer);
+    savedFlashTimer = setTimeout(function(){ if(el) el.textContent = ''; }, 1500);
+  }
+
+  function bestSetOf(sets){
+    var best = null, bestW = -Infinity;
+    (sets||[]).forEach(function(s){
+      var w = parseFloat(s.weight);
+      if(isNaN(w)) w = -Infinity;
+      if(w >= bestW){ bestW = w; best = s; }
+    });
+    return best;
+  }
+
+  function findLastEntry(exercise, allLogs, excludeLogId){
+    for(var i=0;i<allLogs.length;i++){
+      var log = allLogs[i];
+      if(log.id === excludeLogId) continue;
+      var entry = (log.entries||[]).find(function(e){
+        return e.exerciseId === exercise.id || (e.exerciseName||'').toLowerCase() === exercise.name.toLowerCase();
+      });
+      if(entry && entry.sets && entry.sets.length) return { log: log, entry: entry };
+    }
+    return null;
+  }
+
+  var confirmResolve = null;
+  function askConfirm(title, message){
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmModal').classList.remove('hidden');
+    return new Promise(function(resolve){ confirmResolve = resolve; });
+  }
+  function closeConfirm(result){
+    document.getElementById('confirmModal').classList.add('hidden');
+    if(confirmResolve){ confirmResolve(result); confirmResolve = null; }
+  }
+
+  /* ============ state ============ */
+  var state = {
+    schema: null,
+    allLogs: [],
+    view: 'log',
+    logDate: todayStr(),
+    selectedDayId: null,
+    currentLogId: null,
+    formEntries: {},
+    schemaDraft: null,
+    schemaDirty: false,
+    progressExercise: null,
+    importParsed: null
+  };
+
+  function getSelectedDay(){
+    if(!state.schema) return null;
+    return state.schema.days.find(function(d){ return d.id === state.selectedDayId; }) || state.schema.days[0] || null;
+  }
+
+  function initFormEntriesForDay(day, existingLog){
+    var map = {};
+    day.exercises.forEach(function(ex){
+      var savedEntry = existingLog ? (existingLog.entries||[]).find(function(e){ return e.exerciseId === ex.id; }) : null;
+      if(savedEntry && savedEntry.sets && savedEntry.sets.length){
+        map[ex.id] = savedEntry.sets.map(function(s){
+          return { reps: s.reps != null ? String(s.reps) : '', weight: s.weight != null ? String(s.weight) : '' };
+        });
+      } else {
+        var count = (ex.sets && ex.sets > 0) ? ex.sets : 1;
+        var last = findLastEntry(ex, state.allLogs, null);
+        var lastSets = last ? last.entry.sets : [];
+        map[ex.id] = Array.from({ length: count }, function(_, i){
+          var src = lastSets[i] || lastSets[lastSets.length-1];
+          return {
+            reps: (src && src.reps != null) ? String(src.reps) : '',
+            weight: (src && src.weight != null) ? String(src.weight) : ''
+          };
+        });
+      }
+    });
+    state.formEntries = map;
+  }
+
+  function buildEntriesPayload(day){
+    var entries = [];
+    day.exercises.forEach(function(ex){
+      var rows = (state.formEntries[ex.id] || []).filter(function(s){ return s.reps !== '' || s.weight !== ''; });
+      if(rows.length){
+        entries.push({
+          exerciseId: ex.id,
+          exerciseName: ex.name,
+          targetSets: ex.sets,
+          targetReps: ex.reps,
+          sets: rows.map(function(s){
+            return { reps: s.reps === '' ? null : s.reps, weight: s.weight === '' ? null : parseFloat(s.weight) };
+          })
+        });
+      }
+    });
+    return entries;
+  }
+
+  function refreshLogs(){
+    return loadAllLogs().then(function(logs){ state.allLogs = logs; });
+  }
+
+  function autosaveSession(){
+    var day = getSelectedDay();
+    if(!day) return;
+    var entries = buildEntriesPayload(day);
+    var nowIso = new Date().toISOString();
+    var payload = { date: state.logDate, dayId: day.id, dayName: day.name, entries: entries, updatedAt: nowIso };
+    var p;
+    if(state.currentLogId){
+      p = updateLog(state.currentLogId, payload);
+    } else {
+      if(!entries.length) return;
+      payload.createdAt = nowIso;
+      p = createLog(payload).then(function(id){ state.currentLogId = id; });
+    }
+    p.then(function(){
+      return refreshLogs();
+    }).then(function(){
+      flashSaved();
+    }).catch(function(e){
+      console.error(e);
+      showToast('Opslaan mislukt. Probeer het opnieuw.', true);
+    });
+  }
+
+  /* ============ render: log view ============ */
+  function renderLogView(){
+    var el = document.getElementById('view-log');
+    if(!state.schema || !state.schema.days.length){
+      el.innerHTML = '<div class="empty-state"><p>Nog geen trainingsschema. Ga naar het tabblad Schema om er een te importeren.</p></div>';
+      return;
+    }
+    var day = getSelectedDay();
+    var existingLog = state.allLogs.find(function(l){ return l.date === state.logDate && l.dayId === day.id; }) || null;
+    state.currentLogId = existingLog ? existingLog.id : null;
+    initFormEntriesForDay(day, existingLog);
+
+    var weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 6);
+    var weekAgoStr = todayStr(weekAgo);
+    var sessionsThisWeek = state.allLogs.filter(function(l){ return l.date >= weekAgoStr && l.date <= todayStr(); }).length;
+    var totalSessions = state.allLogs.length;
+
+    var chips = state.schema.days.map(function(d, i){
+      var active = d.id === day.id;
+      return '<button class="chip' + (active?' active':'') + '" style="border-left-color:' + dayColorVar(i) + '" data-action="select-day" data-day="' + escapeAttr(d.id) + '">' + escapeHtml(d.name) + '</button>';
+    }).join('');
+
+    var exCards = day.exercises.map(function(ex){
+      var rows = state.formEntries[ex.id] || [];
+      var last = findLastEntry(ex, state.allLogs, state.currentLogId);
+      var prevHtml = '';
+      if(last){
+        var summary = last.entry.sets.map(function(s){
+          var w = (s.weight != null && s.weight !== '') ? (s.weight + 'kg') : '–';
+          var r = (s.reps != null && s.reps !== '') ? s.reps : '–';
+          return w + '×' + r;
+        }).join(', ');
+        prevHtml = '<div class="ex-prev">Vorige keer (' + fmtShortDate(last.log.date) + '): ' + escapeHtml(summary) + '</div>';
+      } else {
+        prevHtml = '<div class="ex-prev" style="color:var(--text-dim)">Nog niet eerder gelogd</div>';
+      }
+      var setRows = rows.map(function(row, i){
+        return '<div class="set-row">' +
+          '<div class="set-idx">#' + (i+1) + '</div>' +
+          '<div class="unit-wrap"><input class="set-input mono" type="text" inputmode="numeric" placeholder="' + escapeAttr(ex.reps||'reps') + '" value="' + escapeAttr(row.reps) + '" data-field="reps" data-exercise="' + escapeAttr(ex.id) + '" data-index="' + i + '"><span>reps</span></div>' +
+          '<div class="unit-wrap"><input class="set-input mono" type="number" step="0.5" min="0" placeholder="kg" value="' + escapeAttr(row.weight) + '" data-field="weight" data-exercise="' + escapeAttr(ex.id) + '" data-index="' + i + '"><span>kg</span></div>' +
+          '<button class="icon-btn" data-action="remove-set" data-exercise="' + escapeAttr(ex.id) + '" data-index="' + i + '" aria-label="Set verwijderen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+        '</div>';
+      }).join('');
+      var skipNote = rows.length === 0 ? '<div class="skip-note">Overgeslagen vandaag</div>' : '';
+      return '<div class="card ex-card">' +
+        '<div class="ex-head"><span class="ex-name">' + escapeHtml(ex.name) + '</span><span class="ex-target mono">' + escapeHtml(String(ex.sets)) + ' × ' + escapeHtml(ex.reps) + '</span></div>' +
+        prevHtml + skipNote + setRows +
+        '<button class="add-set-btn" data-action="add-set" data-exercise="' + escapeAttr(ex.id) + '">+ Set toevoegen</button>' +
+      '</div>';
+    }).join('');
+
+    el.innerHTML =
+      '<div class="stat-row">' +
+        '<div class="stat-tile"><div class="num">' + sessionsThisWeek + '</div><div class="lbl">Trainingen deze week</div></div>' +
+        '<div class="stat-tile"><div class="num">' + totalSessions + '</div><div class="lbl">Trainingen totaal</div></div>' +
+      '</div>' +
+      '<div class="field-row" style="margin-bottom:12px; justify-content:space-between;">' +
+        '<h2 class="section-title" style="margin-bottom:0;">Loggen</h2>' +
+        '<input type="date" class="datepick" id="logDateInput" value="' + escapeAttr(state.logDate) + '">' +
+      '</div>' +
+      '<div class="chip-row">' + chips + '</div>' +
+      exCards +
+      (existingLog ? '<button class="btn btn-danger btn-block" data-action="delete-session" style="margin-top:6px;">Sessie verwijderen</button>' : '') +
+      '<div class="save-indicator" id="save-indicator"></div>';
+  }
+
+  /* ============ render: schema view ============ */
+  function ensureSchemaDraft(){
+    if(!state.schemaDraft) state.schemaDraft = JSON.parse(JSON.stringify(state.schema));
+  }
+
+  function renderSchemaView(){
+    var el = document.getElementById('view-schema');
+    ensureSchemaDraft();
+    var draft = state.schemaDraft;
+
+    var dayCards = draft.days.map(function(day, di){
+      var exRows = day.exercises.map(function(ex, ei){
+        return '<div class="ex-edit-row">' +
+          '<input type="text" value="' + escapeAttr(ex.name) + '" data-schema-field="name" data-day="' + di + '" data-ex="' + ei + '" aria-label="Oefeningnaam">' +
+          '<input type="number" min="1" value="' + escapeAttr(ex.sets) + '" data-schema-field="sets" data-day="' + di + '" data-ex="' + ei + '" aria-label="Aantal sets">' +
+          '<input type="text" value="' + escapeAttr(ex.reps) + '" data-schema-field="reps" data-day="' + di + '" data-ex="' + ei + '" aria-label="Reps">' +
+          '<button class="icon-btn" data-action="schema-remove-exercise" data-day="' + di + '" data-ex="' + ei + '" aria-label="Oefening verwijderen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>' +
+        '</div>';
+      }).join('');
+      return '<div class="card day-card">' +
+        '<div class="day-title-row">' +
+          '<span class="day-swatch" style="background:' + dayColorVar(di) + '"></span>' +
+          '<input class="day-name-input" type="text" value="' + escapeAttr(day.name) + '" data-schema-field="dayname" data-day="' + di + '">' +
+          '<button class="icon-btn" data-action="schema-remove-day" data-day="' + di + '" aria-label="Dag verwijderen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>' +
+        '</div>' +
+        '<div class="ex-edit-row" style="color:var(--text-dim); font-size:0.68rem; text-transform:uppercase; letter-spacing:0.03em;"><span>Oefening</span><span>Sets</span><span>Reps</span><span></span></div>' +
+        exRows +
+        '<button class="add-set-btn" data-action="schema-add-exercise" data-day="' + di + '">+ Oefening toevoegen</button>' +
+      '</div>';
+    }).join('');
+
+    el.innerHTML =
+      '<h2 class="section-title">Schema</h2>' +
+      '<p class="subtle" style="margin-bottom:14px;">' + escapeHtml(draft.name) + '</p>' +
+      dayCards +
+      '<div class="schema-actions">' +
+        '<button class="btn" data-action="schema-add-day">+ Dag toevoegen</button>' +
+        '<button class="btn" data-action="open-import">Importeer schema</button>' +
+      '</div>' +
+      (state.schemaDirty ? '<div class="schema-savebar"><button class="btn btn-ghost" data-action="schema-cancel">Annuleren</button><button class="btn btn-accent btn-block" data-action="schema-save">Wijzigingen opslaan</button></div>' : '');
+  }
+
+  /* ============ render: progress view ============ */
+  function collectExerciseNames(){
+    var names = {};
+    (state.schema ? state.schema.days : []).forEach(function(d){
+      d.exercises.forEach(function(ex){ names[ex.name] = true; });
+    });
+    state.allLogs.forEach(function(l){
+      (l.entries||[]).forEach(function(e){ if(e.exerciseName) names[e.exerciseName] = true; });
+    });
+    return Object.keys(names).sort(function(a,b){ return a.localeCompare(b, 'nl'); });
+  }
+
+  function buildChartSvg(points, mode){
+    var W = 320, H = 170, padL = 30, padR = 10, padT = 12, padB = 22;
+    var values = points.map(function(p){ return p.value; });
+    var minV = Math.min.apply(null, values.concat([0]));
+    var maxV = Math.max.apply(null, values.concat([1]));
+    if(maxV === minV) maxV = minV + 1;
+    var rangeV = maxV - minV;
+    var stepX = points.length > 1 ? (W - padL - padR) / (points.length - 1) : 0;
+    function x(i){ return padL + stepX * i; }
+    function y(v){ return H - padB - ((v - minV) / rangeV) * (H - padT - padB); }
+    var linePts = points.map(function(p,i){ return x(i) + ',' + y(p.value); }).join(' ');
+    var grid = [0, 0.5, 1].map(function(t){
+      var yy = padT + t * (H - padT - padB);
+      var val = Math.round(maxV - t * rangeV);
+      return '<line class="chart-grid" x1="' + padL + '" y1="' + yy + '" x2="' + (W-padR) + '" y2="' + yy + '"/>' +
+             '<text class="chart-axis" x="2" y="' + (yy+3) + '">' + val + '</text>';
+    }).join('');
+    var dots = points.map(function(p,i){
+      var isLast = i === points.length - 1;
+      return '<circle class="' + (isLast ? 'chart-dot chart-dot-last' : 'chart-dot') + '" cx="' + x(i) + '" cy="' + y(p.value) + '" r="' + (isLast ? 5 : 3.5) + '"/>';
+    }).join('');
+    var labelFirst = '<text class="chart-axis" x="' + x(0) + '" y="' + (H-6) + '">' + fmtShortDate(points[0].date) + '</text>';
+    var labelLast = points.length > 1 ? '<text class="chart-axis" x="' + x(points.length-1) + '" y="' + (H-6) + '" text-anchor="end">' + fmtShortDate(points[points.length-1].date) + '</text>' : '';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="chart-svg" role="img" aria-label="Voortgangsgrafiek">' +
+      grid + '<polyline class="chart-line" points="' + linePts + '" fill="none"/>' + dots + labelFirst + labelLast +
+    '</svg>';
+  }
+
+  function renderProgressView(){
+    var el = document.getElementById('view-progress');
+    var names = collectExerciseNames();
+    if(!names.length){
+      el.innerHTML = '<h2 class="section-title">Voortgang</h2><div class="empty-state"><p>Nog geen gegevens. Log een training om hier je voortgang te zien.</p></div>';
+      return;
+    }
+    if(!state.progressExercise || names.indexOf(state.progressExercise) === -1) state.progressExercise = names[0];
+
+    var rows = [];
+    state.allLogs.forEach(function(log){
+      var entry = (log.entries||[]).find(function(e){ return e.exerciseName === state.progressExercise; });
+      if(entry && entry.sets && entry.sets.length) rows.push({ date: log.date, entry: entry });
+    });
+    rows.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+
+    var options = names.map(function(n){
+      return '<option value="' + escapeAttr(n) + '"' + (n === state.progressExercise ? ' selected' : '') + '>' + escapeHtml(n) + '</option>';
+    }).join('');
+
+    if(!rows.length){
+      el.innerHTML = '<h2 class="section-title">Voortgang</h2>' +
+        '<select class="ex-select" id="progressSelect">' + options + '</select>' +
+        '<div class="empty-state"><p>Nog geen sessies gelogd voor deze oefening.</p></div>';
+      return;
+    }
+
+    var hasWeight = rows.some(function(r){ return r.entry.sets.some(function(s){ return parseFloat(s.weight) > 0; }); });
+    var mode = hasWeight ? 'weight' : 'reps';
+    var points = rows.map(function(r){
+      var value;
+      if(mode === 'weight'){
+        var best = bestSetOf(r.entry.sets);
+        value = best ? (parseFloat(best.weight) || 0) : 0;
+      } else {
+        value = r.entry.sets.reduce(function(sum, s){ var n = parseFloat(s.reps); return sum + (isNaN(n) ? 0 : n); }, 0);
+      }
+      return { date: r.date, value: value };
+    });
+
+    var maxVal = Math.max.apply(null, points.map(function(p){ return p.value; }));
+    var chartHtml = points.length > 1
+      ? buildChartSvg(points, mode)
+      : '<p class="subtle">Nog niet genoeg sessies voor een grafiek — log er nog een.</p>';
+
+    var histRows = rows.slice().reverse().map(function(r){
+      var summary = r.entry.sets.map(function(s){
+        var w = (s.weight != null) ? (s.weight + 'kg') : '–';
+        var rp = (s.reps != null && s.reps !== '') ? s.reps : '–';
+        return w + '×' + rp;
+      }).join(', ');
+      var isPr = mode === 'weight' && bestSetOf(r.entry.sets) && parseFloat(bestSetOf(r.entry.sets).weight) === maxVal && maxVal > 0;
+      return '<tr><td class="mono">' + fmtShortDate(r.date) + '</td><td>' + escapeHtml(summary) + (isPr ? '<span class="pr-badge">PR</span>' : '') + '</td></tr>';
+    }).join('');
+
+    el.innerHTML =
+      '<h2 class="section-title">Voortgang</h2>' +
+      '<select class="ex-select" id="progressSelect">' + options + '</select>' +
+      '<div class="card">' +
+        '<div class="subtle" style="margin-bottom:8px;">' + (mode === 'weight' ? 'Zwaarste set per sessie (kg)' : 'Totaal aantal herhalingen per sessie') + '</div>' +
+        chartHtml +
+      '</div>' +
+      '<table class="hist-table"><thead><tr><th>Datum</th><th>Sets</th></tr></thead><tbody>' + histRows + '</tbody></table>';
+  }
+
+  /* ============ top-level render ============ */
+  function renderHeader(){
+    document.getElementById('todayLabel').textContent = fmtDateNice(todayStr());
+  }
+
+  function render(){
+    renderHeader();
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.view === state.view); });
+    document.querySelectorAll('main.view').forEach(function(v){ v.classList.toggle('active', v.id === 'view-' + state.view); });
+    if(state.view === 'log') renderLogView();
+    else if(state.view === 'schema') renderSchemaView();
+    else if(state.view === 'progress') renderProgressView();
+  }
+
+  /* ============ actions ============ */
+  function selectDay(dayId){
+    lsSet(LS_LASTDAY, dayId);
+    state.selectedDayId = dayId;
+    renderLogView();
+  }
+
+  function changeDate(dateStr){
+    state.logDate = dateStr;
+    renderLogView();
+  }
+
+  function addSet(exId){
+    var rows = state.formEntries[exId] || [];
+    var last = rows[rows.length-1];
+    rows.push({ reps: last ? last.reps : '', weight: last ? last.weight : '' });
+    state.formEntries[exId] = rows;
+    renderLogView();
+  }
+
+  function removeSet(exId, idx){
+    var rows = state.formEntries[exId] || [];
+    rows.splice(idx, 1);
+    state.formEntries[exId] = rows;
+    autosaveSession();
+    renderLogView();
+  }
+
+  function deleteSession(){
+    askConfirm('Sessie verwijderen', 'Weet je zeker dat je deze gelogde training wilt verwijderen? Dit kan niet ongedaan worden gemaakt.').then(function(ok){
+      if(!ok || !state.currentLogId) return;
+      deleteLog(state.currentLogId).then(function(){
+        state.currentLogId = null;
+        return refreshLogs();
+      }).then(function(){
+        showToast('Sessie verwijderd');
+        renderLogView();
+      }).catch(function(e){ console.error(e); showToast('Verwijderen mislukt.', true); });
+    });
+  }
+
+  function schemaAddDay(){
+    ensureSchemaDraft();
+    state.schemaDraft.days.push({ id: uid('day'), name: 'Nieuwe dag', exercises: [] });
+    state.schemaDirty = true;
+    renderSchemaView();
+  }
+  function schemaRemoveDay(di){
+    askConfirm('Dag verwijderen', 'Deze dag en alle oefeningen erin worden verwijderd uit het schema.').then(function(ok){
+      if(!ok) return;
+      state.schemaDraft.days.splice(di, 1);
+      state.schemaDirty = true;
+      renderSchemaView();
+    });
+  }
+  function schemaAddExercise(di){
+    ensureSchemaDraft();
+    var day = state.schemaDraft.days[di];
+    day.exercises.push({ id: uid(day.id + '-ex'), name: 'Nieuwe oefening', sets: 3, reps: '10-12' });
+    state.schemaDirty = true;
+    renderSchemaView();
+  }
+  function schemaRemoveExercise(di, ei){
+    state.schemaDraft.days[di].exercises.splice(ei, 1);
+    state.schemaDirty = true;
+    renderSchemaView();
+  }
+  function schemaFieldChange(di, ei, field, value){
+    ensureSchemaDraft();
+    var day = state.schemaDraft.days[di];
+    if(field === 'dayname'){ day.name = value; }
+    else if(field === 'name'){ day.exercises[ei].name = value; }
+    else if(field === 'sets'){ day.exercises[ei].sets = parseInt(value,10) || 1; }
+    else if(field === 'reps'){ day.exercises[ei].reps = value; }
+    state.schemaDirty = true;
+  }
+  function schemaSave(){
+    saveSchema(state.schemaDraft).then(function(){
+      state.schema = JSON.parse(JSON.stringify(state.schemaDraft));
+      state.schemaDirty = false;
+      showToast('Schema opgeslagen');
+      renderSchemaView();
+      renderLogView();
+    }).catch(function(e){ console.error(e); showToast('Opslaan mislukt.', true); });
+  }
+  function schemaCancel(){
+    state.schemaDraft = JSON.parse(JSON.stringify(state.schema));
+    state.schemaDirty = false;
+    renderSchemaView();
+  }
+
+  function openImport(){
+    document.getElementById('importText').value = '';
+    document.getElementById('importPreview').hidden = true;
+    document.getElementById('importPreview').innerHTML = '';
+    document.querySelector('[data-action="confirm-import"]').hidden = true;
+    state.importParsed = null;
+    document.getElementById('importModal').classList.remove('hidden');
+  }
+  function closeImport(){ document.getElementById('importModal').classList.add('hidden'); }
+  function parseImport(){
+    var text = document.getElementById('importText').value;
+    var parsed = parseScheduleMarkdown(text);
+    state.importParsed = parsed;
+    var preview = document.getElementById('importPreview');
+    if(!parsed.days.length){
+      preview.innerHTML = '<p style="color:var(--danger)">Kon geen dagen/oefeningen herkennen. Controleer het formaat.</p>';
+      preview.hidden = false;
+      document.querySelector('[data-action="confirm-import"]').hidden = true;
+      return;
+    }
+    preview.innerHTML = '<p><b>' + escapeHtml(parsed.name) + '</b></p>' + parsed.days.map(function(d){
+      return '<div class="pv-day"><b>' + escapeHtml(d.name) + '</b> — ' + d.exercises.length + ' oefeningen</div>';
+    }).join('');
+    preview.hidden = false;
+    document.querySelector('[data-action="confirm-import"]').hidden = false;
+  }
+  function confirmImport(){
+    if(!state.importParsed) return;
+    askConfirm('Schema vervangen', 'Je huidige schema wordt vervangen door het geïmporteerde schema. Eerder gelogde trainingen blijven bewaard.').then(function(ok){
+      if(!ok) return;
+      saveSchema(state.importParsed).then(function(){
+        state.schema = state.importParsed;
+        state.schemaDraft = null;
+        state.selectedDayId = state.schema.days[0].id;
+        closeImport();
+        showToast('Schema geïmporteerd');
+        renderSchemaView();
+        renderLogView();
+      }).catch(function(e){ console.error(e); showToast('Importeren mislukt.', true); });
+    });
+  }
+
+  /* ============ auth ============ */
+  function showAuthGate(msg){
+    document.getElementById('authMessage').textContent = msg || 'Log in met Google om je trainingen te synchroniseren tussen apparaten.';
+    document.getElementById('authGate').classList.remove('hidden');
+    document.getElementById('app').style.display = 'none';
+  }
+  function hideAuthGate(){
+    document.getElementById('authGate').classList.add('hidden');
+    document.getElementById('app').style.display = '';
+  }
+  function signIn(){
+    var provider = new firebase.auth.GoogleAuthProvider();
+    fbAuth.signInWithRedirect(provider);
+  }
+  function signOutUser(){ fbAuth.signOut(); }
+
+  function initFirebaseFlow(){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+    fbAuth.getRedirectResult().catch(function(e){ console.error('redirect result error', e); });
+    fbAuth.onAuthStateChanged(function(user){
+      if(user && user.email === OWNER_EMAIL){
+        fbUser = user;
+        document.getElementById('signOutBtn').hidden = false;
+        hideAuthGate();
+        startApp();
+      } else if(user){
+        fbUser = null;
+        fbAuth.signOut();
+        showAuthGate('Dit Google-account (' + user.email + ') heeft geen toegang. Log in met ' + OWNER_EMAIL + '.');
+      } else {
+        fbUser = null;
+        document.getElementById('signOutBtn').hidden = true;
+        showAuthGate();
+      }
+    });
+  }
+
+  /* ============ event wiring ============ */
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('[data-action]');
+    if(!t) return;
+    var action = t.dataset.action;
+    if(action === 'set-view'){ state.view = t.dataset.view; render(); }
+    else if(action === 'select-day'){ selectDay(t.dataset.day); }
+    else if(action === 'add-set'){ addSet(t.dataset.exercise); }
+    else if(action === 'remove-set'){ removeSet(t.dataset.exercise, parseInt(t.dataset.index,10)); }
+    else if(action === 'delete-session'){ deleteSession(); }
+    else if(action === 'open-import'){ openImport(); }
+    else if(action === 'close-import'){ closeImport(); }
+    else if(action === 'parse-import'){ parseImport(); }
+    else if(action === 'confirm-import'){ confirmImport(); }
+    else if(action === 'schema-add-day'){ schemaAddDay(); }
+    else if(action === 'schema-remove-day'){ schemaRemoveDay(parseInt(t.dataset.day,10)); }
+    else if(action === 'schema-add-exercise'){ schemaAddExercise(parseInt(t.dataset.day,10)); }
+    else if(action === 'schema-remove-exercise'){ schemaRemoveExercise(parseInt(t.dataset.day,10), parseInt(t.dataset.ex,10)); }
+    else if(action === 'schema-save'){ schemaSave(); }
+    else if(action === 'schema-cancel'){ schemaCancel(); }
+    else if(action === 'confirm-yes'){ closeConfirm(true); }
+    else if(action === 'confirm-no'){ closeConfirm(false); }
+    else if(action === 'sign-in'){ signIn(); }
+    else if(action === 'sign-out'){ signOutUser(); }
+  });
+
+  document.getElementById('app').addEventListener('input', function(e){
+    var t = e.target;
+    if(t.dataset && t.dataset.field && t.dataset.exercise){
+      var rows = state.formEntries[t.dataset.exercise] || [];
+      var idx = parseInt(t.dataset.index, 10);
+      if(rows[idx]) rows[idx][t.dataset.field] = t.value;
+    } else if(t.dataset && t.dataset.schemaField){
+      schemaFieldChange(parseInt(t.dataset.day,10), t.dataset.ex !== undefined ? parseInt(t.dataset.ex,10) : null, t.dataset.schemaField, t.value);
+    }
+  });
+
+  document.getElementById('app').addEventListener('change', function(e){
+    var t = e.target;
+    if(t.id === 'logDateInput'){ changeDate(t.value); return; }
+    if(t.dataset && t.dataset.field && t.dataset.exercise){ autosaveSession(); }
+  });
+
+  document.getElementById('view-progress').addEventListener('change', function(e){
+    if(e.target.id === 'progressSelect'){ state.progressExercise = e.target.value; renderProgressView(); }
+  });
+
+  /* ============ init ============ */
+  function startApp(){
+    Promise.all([loadSchema(), loadAllLogs()]).then(function(results){
+      state.schema = results[0];
+      state.allLogs = results[1];
+      var lastDay = lsGet(LS_LASTDAY, null);
+      state.selectedDayId = (lastDay && state.schema.days.some(function(d){ return d.id === lastDay; })) ? lastDay : state.schema.days[0].id;
+      render();
+    }).catch(function(e){
+      console.error(e);
+      showToast('Kon gegevens niet laden.', true);
+    });
+  }
+
+  if(firebaseConfigured){
+    initFirebaseFlow();
+  } else {
+    startApp();
+  }
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('./sw.js').catch(function(e){ console.error('SW registratie mislukt', e); });
+    });
+  }
+})();
+</script>
+</body>
+</html>
