@@ -258,7 +258,7 @@
   <div class="modal">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8v8M2 10v4M20 8v8M22 10v4M7 12h10M7 9v6M17 9v6"/></svg>
     <h2>IJzerlog</h2>
-    <p class="subtle" id="authMessage">Log in met Google om je trainingen te synchroniseren tussen apparaten.</p>
+    <p class="subtle" id="authMessage">Log in met je Google-account (mandersjacksumma@gmail.com) om je trainingen te synchroniseren tussen apparaten.</p>
     <button class="btn btn-accent btn-block" data-action="sign-in" style="margin-top:14px;">Inloggen met Google</button>
   </div>
 </div>
@@ -1050,7 +1050,7 @@
 
   /* ============ auth ============ */
   function showAuthGate(msg){
-    document.getElementById('authMessage').textContent = msg || 'Log in met Google om je trainingen te synchroniseren tussen apparaten.';
+    document.getElementById('authMessage').textContent = msg || 'Log in met je Google-account (mandersjacksumma@gmail.com) om je trainingen te synchroniseren tussen apparaten.';
     document.getElementById('authGate').classList.remove('hidden');
     document.getElementById('app').style.display = 'none';
   }
@@ -1071,8 +1071,9 @@
     var btn = document.querySelector('[data-action="sign-in"]');
     if(btn) btn.disabled = true;
     var provider = new firebase.auth.GoogleAuthProvider();
-    fbAuth.signInWithRedirect(provider).catch(function(e){
+    fbAuth.signInWithPopup(provider).catch(function(e){
       console.error('sign-in error', e);
+      if(e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request')) return;
       showAuthGate(authErrorMessage(e));
     }).finally(function(){
       if(btn) btn.disabled = false;
@@ -1084,10 +1085,6 @@
     firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth = firebase.auth();
     fbDb = firebase.firestore();
-    fbAuth.getRedirectResult().catch(function(e){
-      console.error('redirect result error', e);
-      showAuthGate(authErrorMessage(e));
-    });
     fbAuth.onAuthStateChanged(function(user){
       if(user && user.email === OWNER_EMAIL){
         fbUser = user;
